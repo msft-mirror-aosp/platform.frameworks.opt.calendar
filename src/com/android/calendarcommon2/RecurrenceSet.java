@@ -20,7 +20,9 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.provider.CalendarContract;
 import android.text.TextUtils;
+import android.text.format.Time;
 import android.util.Log;
+import android.util.TimeFormatException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -160,14 +162,14 @@ public class RecurrenceSet {
             // The timezone is updated to UTC if the time string specified 'Z'.
             try {
                 time.parse(rawDates[i]);
-            } catch (IllegalArgumentException e) {
+            } catch (TimeFormatException e) {
                 throw new EventRecurrence.InvalidFormatException(
-                        "IllegalArgumentException thrown when parsing time " + rawDates[i]
+                        "TimeFormatException thrown when parsing time " + rawDates[i]
                                 + " in recurrence " + recurrence);
 
             }
-            dates[i] = time.toMillis();
-            time.setTimezone(tz);
+            dates[i] = time.toMillis(false /* use isDst */);
+            time.timezone = tz;
         }
         return dates;
     }
@@ -194,9 +196,8 @@ public class RecurrenceSet {
             // NOTE: the timezone may be null, if this is a floating time.
             String tzid = tzidParam == null ? null : tzidParam.value;
             Time start = new Time(tzidParam == null ? Time.TIMEZONE_UTC : tzid);
-            start.parse(dtstart);
-            boolean inUtc = dtstart.length() == 16 && dtstart.charAt(15) == 'Z';
-            boolean allDay = start.isAllDay();
+            boolean inUtc = start.parse(dtstart);
+            boolean allDay = start.allDay;
 
             // We force TimeZone to UTC for "all day recurring events" as the server is sending no
             // TimeZone in DTSTART for them
@@ -223,9 +224,9 @@ public class RecurrenceSet {
             }
 
             if (allDay) {
-                start.setTimezone(Time.TIMEZONE_UTC);
+                start.timezone = Time.TIMEZONE_UTC;
             }
-            long millis = start.toMillis();
+            long millis = start.toMillis(false /* use isDst */);
             values.put(CalendarContract.Events.DTSTART, millis);
             if (millis == -1) {
                 if (false) {
@@ -242,7 +243,7 @@ public class RecurrenceSet {
             values.put(CalendarContract.Events.DURATION, duration);
             values.put(CalendarContract.Events.ALL_DAY, allDay ? 1 : 0);
             return true;
-        } catch (IllegalArgumentException e) {
+        } catch (TimeFormatException e) {
             // Something is wrong with the format of this event
             Log.i(TAG,"Failed to parse event: " + component.toString());
             return false;
@@ -300,10 +301,10 @@ public class RecurrenceSet {
         // TODO: android.pim.Time really should take care of this for us.
         if (allDay) {
             dtstartProp.addParameter(new ICalendar.Parameter("VALUE", "DATE"));
-            dtstartTime.setAllDay(true);
-            dtstartTime.setHour(0);
-            dtstartTime.setMinute(0);
-            dtstartTime.setSecond(0);
+            dtstartTime.allDay = true;
+            dtstartTime.hour = 0;
+            dtstartTime.minute = 0;
+            dtstartTime.second = 0;
         }
 
         dtstartProp.setValue(dtstartTime.format2445());
@@ -359,10 +360,10 @@ public static boolean populateComponent(ContentValues values,
         // TODO: android.pim.Time really should take care of this for us.
         if (allDay) {
             dtstartProp.addParameter(new ICalendar.Parameter("VALUE", "DATE"));
-            dtstartTime.setAllDay(true);
-            dtstartTime.setHour(0);
-            dtstartTime.setMinute(0);
-            dtstartTime.setSecond(0);
+            dtstartTime.allDay = true;
+            dtstartTime.hour = 0;
+            dtstartTime.minute = 0;
+            dtstartTime.second = 0;
         }
 
         dtstartProp.setValue(dtstartTime.format2445());
@@ -479,13 +480,14 @@ public static boolean populateComponent(ContentValues values,
         ICalendar.Parameter endTzidParameter =
                 dtendProperty.getFirstParameter("TZID");
         String endTzid = (endTzidParameter == null)
-                ? start.getTimezone() : endTzidParameter.value;
+                ? start.timezone : endTzidParameter.value;
 
         Time end = new Time(endTzid);
         end.parse(dtendProperty.getValue());
-        long durationMillis = end.toMillis() - start.toMillis();
+        long durationMillis = end.toMillis(false /* use isDst */)
+                - start.toMillis(false /* use isDst */);
         long durationSeconds = (durationMillis / 1000);
-        if (start.isAllDay() && (durationSeconds % 86400) == 0) {
+        if (start.allDay && (durationSeconds % 86400) == 0) {
             return "P" + (durationSeconds / 86400) + "D"; // Server wants this instead of P86400S
         } else {
             return "P" + durationSeconds + "S";
