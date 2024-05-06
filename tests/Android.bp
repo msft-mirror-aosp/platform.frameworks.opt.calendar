@@ -28,5 +28,6 @@ android_test {
     static_libs: [
         "calendar-common",
         "junit",
+        "androidx.test.rules",
     ],
 }
