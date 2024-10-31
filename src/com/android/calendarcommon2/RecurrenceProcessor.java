@@ -497,7 +497,6 @@ bysetpos:
             int[] byday, bydayNum, bymonthday;
             int j, lastDayThisMonth;
             int first; // Time.SUNDAY, etc
-            int k;
 
             lastDayThisMonth = generated.getActualMaximum(Time.MONTH_DAY);
 
@@ -861,7 +860,6 @@ bysetpos:
             }
 
             // go until the end of the range or we're done with this event
-            boolean eventEnded = false;
             int failsafe = 0; // Avoid infinite loops
             events: {
                 while (true) {
