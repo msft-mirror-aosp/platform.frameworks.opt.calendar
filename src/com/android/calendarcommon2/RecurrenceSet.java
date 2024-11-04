@@ -35,7 +35,6 @@ public class RecurrenceSet {
     private final static String TAG = "RecurrenceSet";
 
     private final static String RULE_SEPARATOR = "\n";
-    private final static String FOLDING_SEPARATOR = "\n ";
 
     // TODO: make these final?
     public EventRecurrence[] rrules = null;
